@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - hw01-submit
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Run tests
+        id: tests
+        run: |
+          set +e
+          mkdir -p results
+          npm test -- --runInBand --coverage --json --outputFile=results/jest-results.json
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+      - name: Write results summary
+        run: node scripts/ci/write-results.cjs
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw01-results
+          path: results/hw01.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+      - uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+      - name: Fail if tests failed
+        if: ${{ steps.tests.outputs.exit_code != '0' }}
+        run: exit 1
